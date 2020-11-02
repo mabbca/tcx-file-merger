@@ -112,15 +112,7 @@ mergedFile = logObjectEachTimeSpeedIsFound(heartRateFile, mergedFile);
 // on dirait que l'elevation est pas correcte, il faudrait voir si on doit pas aussi parser du stuff du fichier .gpx
 createNewFile(mergedFile);
 
-
-// const trackpoints = file.TrainingCenterDatabase.Activities.Activity.Lap.Track.Trackpoint;
-// const trackpointsArray = Object.values(trackpoints);
-// console.log(trackpointsArray.length);
-
-// const hasHeartRateBPM = trackpointsArray.find((trackpoint) => trackpoint.HeartRateBpm && trackpoint.HeartRateBpm.Value);
-// console.log(!!hasHeartRateBPM);
-
-// console.log(tcxFiles);
+// http://www.curtismlarson.com/blog/2018/10/03/edit-xml-node-js/
 
 // 1. obtenir le data des deux fichiers
 // 2. déterminer quel fichier a le hr pis lequel a la vitesse
