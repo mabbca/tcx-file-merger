@@ -61,7 +61,6 @@ getFileTrackpointsArray = (file) => {
   return file.TrainingCenterDatabase.Activities.Activity.Lap.Track.Trackpoint;
 }
 
-
 logObjectEachTimeSpeedIsFound = (hrFile, speedFile) => {
   hrFileTrackpoints = getFileTrackpointsArray(hrFile);
   speedFileTrackpoints = getFileTrackpointsArray(speedFile);
@@ -74,27 +73,30 @@ logObjectEachTimeSpeedIsFound = (hrFile, speedFile) => {
   speedFileTrackpoints.forEach(tp => {
     const speedTime = tp.Time;
     hrObject = findObjectWithCorrespondingTime(speedTime, hrFileTrackpoints)
-
     if (hrObject) {
-      newSpeedFileTrackpointList.push({
-        ...tp,
-        HeartRateBpm: hrObject.HeartRateBpm,
-      });
-    } else {
-      newSpeedFileTrackpointList.push(tp);
+      tp['HeartRateBpm'] = hrObject.HeartRateBpm;
     }
   });
 
-  console.log(newSpeedFileTrackpointList)
-  createNewFile(newSpeedFileTrackpointList);
+  return speedFile;
+}
+
+mergeGeneralData = (hrFile, speedFile) => {
+  speedFile.TrainingCenterDatabase.Activities.Activity.Sport = speedFile.TrainingCenterDatabase.Activities.Activity.Sport;
+  speedFile.TrainingCenterDatabase.Activities.Activity.Lap['Calories'] = hrFile.TrainingCenterDatabase.Activities.Activity.Lap.Calories;
+  speedFile.TrainingCenterDatabase.Activities.Activity.Lap['AverageHeartRateBpm'] = hrFile.TrainingCenterDatabase.Activities.Activity.Lap.AverageHeartRateBpm;
+  speedFile.TrainingCenterDatabase.Activities.Activity.Lap['MaximumHeartRateBpm'] = hrFile.TrainingCenterDatabase.Activities.Activity.Lap.MaximumHeartRateBpm;
+  return speedFile;
 }
 
 createNewFile = (content) => {
-  fs.writeFileSync('newFile.tcx', content);
+  var stringified = JSON.stringify(content);
+  var xml = parser.toXml(stringified);
+  fs.writeFileSync('newFile.tcx', xml);
 }
 
 findObjectWithCorrespondingTime = (time, trackpointsArray)  => {
-  return trackpointsArray.find(tp => tp.Time === time);
+  return trackpointsArray.find(tp => tp.Time['$t'] === time['$t']);
 } 
 
 const tcxFiles = getFiles();
@@ -104,8 +106,11 @@ const heartRateFileIndex = getHeartRateFileIndex(jsonFiles);
 const heartRateFile = jsonFiles[heartRateFileIndex];
 const speedFile = jsonFiles[1 - heartRateFileIndex];
 
-// logObjectEachTimeSpeedIsFound(heartRateFile, speedFile);
+let mergedFile = mergeGeneralData(heartRateFile, speedFile);
+mergedFile = logObjectEachTimeSpeedIsFound(heartRateFile, mergedFile);
 
+// on dirait que l'elevation est pas correcte, il faudrait voir si on doit pas aussi parser du stuff du fichier .gpx
+createNewFile(mergedFile);
 
 
 // const trackpoints = file.TrainingCenterDatabase.Activities.Activity.Lap.Track.Trackpoint;
