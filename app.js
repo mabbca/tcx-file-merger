@@ -1,25 +1,53 @@
-const http = require('http');
 const parser = require('xml2json');
 const fs = require('fs');
 const path = require('path');
+const { Console } = require('console');
 
+const express = require('express');
+const { stringify } = require('querystring');
+const server = express()
 const hostname = '127.0.0.1';
 const port = 3000;
 
-const server = http.createServer((req, res) => {
+server.get('/', (req, res) => {
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/plain');
-  res.end('Hello World');
-});
+  res.send('Hello World!')
+})
+
+server.get('/generate_file', (req, res) => {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/xml');
+
+  const tcxFiles = getFiles();
+  const jsonFiles = convertFilesToJson(tcxFiles);
+  const heartRateFileIndex = getHeartRateFileIndex(jsonFiles);
+
+  const heartRateFile = jsonFiles[heartRateFileIndex];
+  const speedFile = jsonFiles[1 - heartRateFileIndex];
+
+  let mergedFile = mergeGeneralData(heartRateFile, speedFile);
+  mergedFile = logObjectEachTimeSpeedIsFound(heartRateFile, mergedFile);
+
+  let xmlFile = createNewFile(mergedFile)
+
+  res.setHeader('Content-disposition', 'attachment; filename=merged_file.tcx');
+  res.setHeader('Content-type', 'text/xml');
+
+  // on dirait que l'elevation est pas correcte, il faudrait voir si on doit pas aussi parser du stuff du fichier .gpx
+  res.send(xmlFile);
+})
 
 server.listen(port, hostname, () => {
   console.log(`Server running at http://${hostname}:${port}/`);
-});
+})
 
-getFiles = () => {
+function getFiles() {
   const filePathList = fs.readdirSync(path.resolve('files')).map(fileName => {
-    return path.join(path.resolve('files'), fileName)
-  })
+    if (fileName.includes('-heartrate') || fileName.includes('-speed')) {
+      return path.join(path.resolve('files'), fileName) 
+    } 
+  }).filter(function (el) { return typeof el !== 'undefined' });
   
   const filePathListContainsFiles = !!filePathList.find(fileName => {
     return fs.lstatSync(fileName).isFile()
@@ -43,13 +71,13 @@ getFiles = () => {
   }
 }
 
-convertFilesToJson = (tcxFiles) => {
+function convertFilesToJson(tcxFiles) {
   return tcxFiles.map(file => {
     return JSON.parse(parser.toJson(file, {reversible: true}));
   })
 }
 
-getHeartRateFileIndex = (files) => {
+function getHeartRateFileIndex(files) {
   return files.findIndex(file => {
     const trackpoints = file.TrainingCenterDatabase.Activities.Activity.Lap.Track.Trackpoint;
     const trackpointsArray = Object.values(trackpoints);
@@ -57,11 +85,11 @@ getHeartRateFileIndex = (files) => {
   })
 }
 
-getFileTrackpointsArray = (file) => {
+function getFileTrackpointsArray(file) {
   return file.TrainingCenterDatabase.Activities.Activity.Lap.Track.Trackpoint;
 }
 
-logObjectEachTimeSpeedIsFound = (hrFile, speedFile) => {
+function logObjectEachTimeSpeedIsFound(hrFile, speedFile) {
   hrFileTrackpoints = getFileTrackpointsArray(hrFile);
   speedFileTrackpoints = getFileTrackpointsArray(speedFile);
 
@@ -81,7 +109,7 @@ logObjectEachTimeSpeedIsFound = (hrFile, speedFile) => {
   return speedFile;
 }
 
-mergeGeneralData = (hrFile, speedFile) => {
+function mergeGeneralData(hrFile, speedFile) {
   speedFile.TrainingCenterDatabase.Activities.Activity.Sport = speedFile.TrainingCenterDatabase.Activities.Activity.Sport;
   speedFile.TrainingCenterDatabase.Activities.Activity.Lap['Calories'] = hrFile.TrainingCenterDatabase.Activities.Activity.Lap.Calories;
   speedFile.TrainingCenterDatabase.Activities.Activity.Lap['AverageHeartRateBpm'] = hrFile.TrainingCenterDatabase.Activities.Activity.Lap.AverageHeartRateBpm;
@@ -89,28 +117,14 @@ mergeGeneralData = (hrFile, speedFile) => {
   return speedFile;
 }
 
-createNewFile = (content) => {
-  var stringified = JSON.stringify(content);
-  var xml = parser.toXml(stringified);
-  fs.writeFileSync('newFile.tcx', xml);
+function createNewFile(content) {
+  let stringified = JSON.stringify(content);
+  return parser.toXml(content);
 }
 
-findObjectWithCorrespondingTime = (time, trackpointsArray)  => {
+function findObjectWithCorrespondingTime(time, trackpointsArray) {
   return trackpointsArray.find(tp => tp.Time['$t'] === time['$t']);
 } 
-
-const tcxFiles = getFiles();
-const jsonFiles = convertFilesToJson(tcxFiles);
-const heartRateFileIndex = getHeartRateFileIndex(jsonFiles);
-
-const heartRateFile = jsonFiles[heartRateFileIndex];
-const speedFile = jsonFiles[1 - heartRateFileIndex];
-
-let mergedFile = mergeGeneralData(heartRateFile, speedFile);
-mergedFile = logObjectEachTimeSpeedIsFound(heartRateFile, mergedFile);
-
-// on dirait que l'elevation est pas correcte, il faudrait voir si on doit pas aussi parser du stuff du fichier .gpx
-createNewFile(mergedFile);
 
 // http://www.curtismlarson.com/blog/2018/10/03/edit-xml-node-js/
 
@@ -120,3 +134,4 @@ createNewFile(mergedFile);
 // 4. pour chaque trackpoint avec le meme time, ajouter le hrbpm data à la suite des watts pis l'ajouter à une liste de trackpoints
 // 5. merger les infos de base du header
 // 6. ajouter le header dans l'fichier pis lui mettre les trackpoints dedans, save it
+// 7. use typescript :)
