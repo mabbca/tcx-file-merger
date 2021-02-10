@@ -13,7 +13,7 @@ server.get('/', (req, res) => {
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/plain');
   res.send('Hello World!')
-})
+});
 
 server.get('/generate_file', (req, res) => {
   res.statusCode = 200;
@@ -36,11 +36,11 @@ server.get('/generate_file', (req, res) => {
 
   // on dirait que l'elevation est pas correcte, il faudrait voir si on doit pas aussi parser du stuff du fichier .gpx
   res.send(xmlFile);
-})
+});
 
 server.listen(port, hostname, () => {
   console.log(`Server running at http://${hostname}:${port}/`);
-})
+});
 
 function getFiles() {
   const filePathList = fs.readdirSync(path.resolve('files')).map(fileName => {
